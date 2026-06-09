@@ -6,3 +6,16 @@ The system is designed with a scalable, asynchronous backend architecture to ens
 
 <img width="1536" height="1024" alt="ChatGPT Image Jun 9, 2026, 10_36_07 AM" src="https://github.com/user-attachments/assets/0a53600d-98e3-47e4-8333-d3050e5e0226" />
 
+📊 System Design Goals
+Non-blocking API response flow
+Efficient resource usage for LLM calls
+Modular microservice-style backend structure
+Easy horizontal scaling
+
+🔐 Environment Variables
+You will need the following environment variables:
+```
+GROQ_API_KEY=your_api_key
+REDIS_URL=redis://localhost:6379
+DJANGO_SECRET_KEY=your_secret_key
+```
