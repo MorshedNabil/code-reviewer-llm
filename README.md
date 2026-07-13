@@ -1,4 +1,4 @@
-# Code Reviewer LLM (LLM + Distributed Backend
+# Code Reviewer LLM (LLM + Distributed Backend)
 
 ## 📌 Overview
 This project is an AI-powered code review system that uses a Large Language Model (LLM - LLaMA via Groq API) to analyze and review code like a senior software engineer.
