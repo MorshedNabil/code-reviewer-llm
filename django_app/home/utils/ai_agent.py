@@ -8,6 +8,10 @@ from home.utils.env import load_env_files
 load_env_files(__file__)
 
 def analyze_code_llm(file_content, file_name):
+    """
+    Analyzes the given code using a language model and returns the analysis in JSON format.
+    """
+
     user_prompt = f"""
     Analyze the code based on these criteria:
     - Best practice

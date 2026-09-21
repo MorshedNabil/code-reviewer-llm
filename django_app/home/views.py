@@ -4,6 +4,14 @@ from rest_framework.response import Response
 from .task import analyze_pr_task
 from celery.result import AsyncResult
 
+
+# =========== Health check endpoint ===========
+@api_view(['GET'])
+def health_check(request):
+    return Response({"status": "ok"}, status=status.HTTP_200_OK)
+
+
+# =========== Start task endpoint ===========
 @api_view(['POST'])
 def start_task(request):
     data = request.data
