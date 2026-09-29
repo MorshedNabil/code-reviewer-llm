@@ -1,7 +1,5 @@
 import os
-
 from groq import Groq
-
 from home.utils.env import load_env_files
 
 

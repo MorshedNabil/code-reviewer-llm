@@ -3,14 +3,15 @@
 import base64
 import os
 import uuid
+from pathlib import Path
 from urllib.parse import urlparse
-
 import requests
 from home.utils.ai_agent import analyze_code_llm
-from home.utils.env import load_env_files
+from dotenv import load_dotenv
 
-
-load_env_files(__file__)
+# load env file 
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR.parent / ".env", override=False)
 
 
 class PRReviewError(Exception):
@@ -24,7 +25,7 @@ class PRReviewError(Exception):
 #==================== Helper Functions ===================
 def get_owner_repo(url):
     if not url or not str(url).strip():
-        raise PRReviewError("Repository URL is required.", code="missing_repo_url")
+        raise PRReviewError("Repository URL is required.", code="missing_repo_url", status_code=400)
 
     parsed_url = urlparse(str(url).strip())
     host = parsed_url.netloc.lower().replace("www.", "")
@@ -33,6 +34,7 @@ def get_owner_repo(url):
         raise PRReviewError(
             "Only GitHub repository URLs are supported right now. Use a format like https://github.com/owner/repo.",
             code="invalid_repo_url",
+            status_code=400,
         )
 
     path_parts = [part for part in parsed_url.path.split("/") if part]
@@ -40,13 +42,18 @@ def get_owner_repo(url):
         raise PRReviewError(
             "Repository URL must include both the owner and repo name, for example: https://github.com/owner/repo",
             code="invalid_repo_url",
+            status_code=400,
         )
 
     owner = path_parts[0]
     repo = path_parts[1].removesuffix(".git")
 
     if not owner or not repo:
-        raise PRReviewError("The repository URL is incomplete or invalid.", code="invalid_repo_url")
+        raise PRReviewError(
+            "The repository URL is incomplete or invalid.", 
+            code="invalid_repo_url", 
+            status_code=400
+    )
 
     return repo, owner
 # ========================================================
@@ -110,6 +117,7 @@ def fetch_pr_files(repo_url, pr_number, github_token=None):
         raise PRReviewError(
             f"Unable to connect to GitHub while fetching PR files: {exc}",
             code="github_connection_error",
+            status_code=exc.response.status_code if hasattr(exc, "response") and exc.response is not None else None,
         ) from exc
 
 
@@ -132,6 +140,7 @@ def fetch_pr_details(repo_url, pr_number, github_token=None):
         raise PRReviewError(
             f"Unable to connect to GitHub while fetching PR details: {exc}",
             code="github_connection_error",
+            status_code=exc.response.status_code if hasattr(exc, "response") and exc.response is not None else None,
         ) from exc
 
 
@@ -153,6 +162,7 @@ def fetch_file_content(repo_url, file_path, ref, github_token=None):
         raise PRReviewError(
             f"Unable to fetch file content for '{file_path}' from GitHub: {exc}",
             code="github_connection_error",
+            status_code=exc.response.status_code if hasattr(exc, "response") and exc.response is not None else None,
         ) from exc
 
     response_dict = response.json()
@@ -178,13 +188,15 @@ def analyze_pr(repo_url, pr_number, github_token=None):
         except (TypeError, ValueError):
             raise PRReviewError(
                 "PR number must be a valid integer.", 
-                code="invalid_pr_number"
+                code="invalid_pr_number",
+                status_code=400
             )
 
         if pr_number <= 0:
             raise PRReviewError(
                 "PR number must be greater than zero.", 
-                code="invalid_pr_number"
+                code="invalid_pr_number",
+                status_code=400
             )
 
         pr_details = fetch_pr_details(repo_url, pr_number, github_token)
@@ -194,6 +206,7 @@ def analyze_pr(repo_url, pr_number, github_token=None):
             raise PRReviewError(
                 "The PR metadata is incomplete and the head commit could not be resolved.",
                 code="invalid_pr_data",
+                status_code=400
             )
 
         pr_files = fetch_pr_files(repo_url, pr_number, github_token)
@@ -216,6 +229,7 @@ def analyze_pr(repo_url, pr_number, github_token=None):
                         "result": None,
                         "error": exc.message,
                         "error_code": exc.code,
+                        "status_code": exc.status_code,
                     }
                 )
                 continue
@@ -227,6 +241,7 @@ def analyze_pr(repo_url, pr_number, github_token=None):
                         "result": None,
                         "error": "This file could not be read from GitHub and was skipped.",
                         "error_code": "file_unreadable",
+                        "status_code": None,
                     }
                 )
                 continue
