@@ -57,6 +57,11 @@ If your Docker installation uses the legacy CLI:
 docker-compose up -d redis
 ```
 
+To run a existing container:
+```powershell
+docker start project_name
+```
+
 ### 3) Start Django app
 
 Open a new terminal and activate the venv there as well, then run:
@@ -73,7 +78,7 @@ Open another terminal and activate the venv, then run:
 
 ```powershell
 cd "E:\My Projects\Python Projects\code-reviewer-llm\django_app"
-celery -A django_app worker -l info
+celery -A django_app worker -l info -P eventlet
 ```
 
 ### 5) Start FastAPI app
