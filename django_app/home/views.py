@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .task import analyze_pr_task
+from .tasks import analyze_pr_task
 from celery.result import AsyncResult
 
 

@@ -6,5 +6,10 @@ from home.utils.github import analyze_pr
 
 @shared_task
 def analyze_pr_task(repo_url, pr_number, github_token=None):
+    '''
+    Celery task to analyze a GitHub pull request.
+
+    Asynchronously executes the analyze_pr function with the provided parameters.
+    '''
     result = analyze_pr(repo_url, pr_number, github_token)
     return result
