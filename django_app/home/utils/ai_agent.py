@@ -1,9 +1,13 @@
 import os
+from dotenv import load_dotenv
+from pathlib import Path
 from groq import Groq
-from home.utils.env import load_env_files
 
 
-load_env_files(__file__)
+
+# load env file 
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR.parent / ".env", override=False)
 
 def analyze_code_llm(file_content, file_name):
     """
@@ -58,23 +62,23 @@ def analyze_code_llm(file_content, file_name):
     }}
     """
     
-    client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
     completion = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-    messages=[
-        {
-            "role": "system",
-            "content": system_prompt
-        },
-        { 
-            "role": "user",
-            "content": user_prompt
-        }
-    ],
-    temperature=1,
-    max_completion_tokens=1024,
-    top_p=1,
+        model="openai/gpt-oss-120b",
+        messages=[
+            {
+                "role": "system",
+                "content": system_prompt
+            },
+            { 
+                "role": "user",
+                "content": user_prompt
+            }
+        ],
+        temperature=1,
+        max_completion_tokens=2048,
+        top_p=1,
     )
     
     llm_response = completion.choices[0].message.content

@@ -21,10 +21,10 @@ load_dotenv(BASE_DIR.parent / ".env", override=False)
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+SECRET_KEY = os.environ["DJANGO_SECRET_KEY"] # environ returns the value of the environment variable, or raises a KeyError if the variable is not set. This is useful for sensitive information like secret keys, which should not be hard-coded in the source code.
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "False")
 
 ALLOWED_HOSTS = []
 

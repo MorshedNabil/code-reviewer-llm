@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
+from dotenv import load_dotenv
+import os
 import httpx
 
 app = FastAPI()
@@ -12,7 +14,14 @@ class AnalyzePRrequest(BaseModel):
     pr_number : int
     github_token : Optional[str] = None
 
+# Django api base url
+DJANGO_API_BASE_URL = os.getenv("DJANGO_API__BASE_URL", "http://127.0.0.1:8000")
+
 # ============== api endpoints ==============
+@app.get("/health/")
+async def health_check():
+    return {"status": "ok"}
+
 @app.post("/start-task/")
 async def start_task_endpoint(task_request : AnalyzePRrequest):
     data = {
@@ -24,7 +33,7 @@ async def start_task_endpoint(task_request : AnalyzePRrequest):
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                "http://127.0.0.1:8001/start_task/",
+                f"{DJANGO_API_BASE_URL}/start_task/",
                 json = data # DRF can usually handle both JSON and form data, so data=data may still work. But since this is API-to-API communication, json=data is cleaner and more standard.
             )
 
@@ -38,7 +47,7 @@ async def start_task_endpoint(task_request : AnalyzePRrequest):
                     status_code=response.status_code,
                     content=error_body
                 )
-        return response.json() # converts the json response into python dictionary and sends the 
+        return response.json() # converts the json response into python dictionary and sends the response back to the client 
     
     except httpx.RequestError:
         raise HTTPException(
@@ -52,7 +61,7 @@ async def task_status_endpoint(task_id: str):
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"http://127.0.0.1:8001/task_status_view/{task_id}/",
+                f"{DJANGO_API_BASE_URL}/task_status_view/{task_id}/",
             )
 
             if response.status_code != 200:
