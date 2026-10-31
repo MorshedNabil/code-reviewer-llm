@@ -1,5 +1,5 @@
 from celery import Celery, shared_task
-from home.utils.github import analyze_pr
+from django_app.home.review_engine.github.github import analyze_pr
 
 # app = Celery('django_app')
 # app.config_from_object('django.cong:settings', namespace="Celery")

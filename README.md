@@ -59,7 +59,7 @@ docker-compose up -d redis
 
 To run a existing container:
 ```powershell
-docker start project_name
+docker start container_name
 ```
 
 ### 3) Start Django app

@@ -4,27 +4,32 @@ from pathlib import Path
 from groq import Groq
 
 
-
 # load env file 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR.parent / ".env", override=False)
 
-def analyze_code_llm(file_content, file_name):
+def analyze_code_llm(diff_content, file_name):
     """
-    Analyzes the given code using a language model and returns the analysis in JSON format.
+    Analyzes changed lines from a pull request diff and returns JSON findings.
     """
 
     user_prompt = f"""
-    Analyze the code based on these criteria:
+    Review the changed lines in this pull request diff based on these criteria:
     - Best practice
     - Code style and formatting issues
     - Bugs and errors
-    - Performence improvement
+    - Performance improvement
     
     File Name: {file_name}
-    File Content: {file_content}
+    Changed lines:
+    {diff_content}
 
-    Provide detail JSON output in this structure"
+    Lines prefixed with "+" are additions and lines prefixed with "-" are deletions.
+    The annotations give the line number in the new file for additions and the old
+    file for deletions. Focus findings on added lines; use deleted lines only as context
+    and do not report issues solely on deleted code.
+
+    Return valid JSON in this structure:
     {{
         "issues": [
             {{  
@@ -35,32 +40,9 @@ def analyze_code_llm(file_content, file_name):
             }}
         
         ]
-    
-    }}
-    ```json
-    """
-    system_prompt = f"""
-    Your evaluations writing is in text format.
-    But your evaluations must be in JSON format. Here is an example of JSON response.
-    ```
-    {{
-        "name": "main.py",
-        "issues": [
-        {{
-            "type": "style",
-            "line": 12,
-            "description": "Line is too long",
-            "suggesion": "Break line into multiple lines"
-        }},
-        {{
-            "type": "bugs",
-            "line": 20,
-            "description": "Potential null pointer",
-            "suggesion": "add null check"
-        }}
-        ]
     }}
     """
+    system_prompt = "Return only valid JSON with an issues array. Do not include markdown fences."
     
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 

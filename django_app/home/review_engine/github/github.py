@@ -1,12 +1,12 @@
 ## github pull request api docs: https://docs.github.com/en/rest/pulls/pulls?apiVersion=2026-03-10#list-pull-requests-files
 
-import base64
 import os
+import re
 import uuid
 from pathlib import Path
 from urllib.parse import urlparse
 import requests
-from home.utils.ai_agent import analyze_code_llm
+from django_app.home.review_engine.llm.ai_agent import analyze_code_llm
 from dotenv import load_dotenv
 
 # load env file 
@@ -102,6 +102,35 @@ def _handle_github_error(response, action_label):
 
 
 #==================== GitHub API Functions ===================
+def extract_changed_lines(patch):
+    changed_lines = []
+    old_line_number = None
+    new_line_number = None
+
+    for line in patch.splitlines():
+        if line.startswith("@@"):
+            hunk = re.match(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
+            if hunk:
+                old_line_number = int(hunk.group(1))
+                new_line_number = int(hunk.group(2))
+            continue
+
+        if old_line_number is None or new_line_number is None or line.startswith("\\"):
+            continue
+
+        if line.startswith("+"):
+            changed_lines.append(f"+ [new line {new_line_number}] {line[1:]}")
+            new_line_number += 1
+        elif line.startswith("-"):
+            changed_lines.append(f"- [old line {old_line_number}] {line[1:]}")
+            old_line_number += 1
+        elif line.startswith(" "):
+            old_line_number += 1
+            new_line_number += 1
+
+    return "\n".join(changed_lines)
+
+
 def fetch_pr_files(repo_url, pr_number, github_token=None):
     repo, owner = get_owner_repo(repo_url)
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files"
@@ -144,35 +173,6 @@ def fetch_pr_details(repo_url, pr_number, github_token=None):
         ) from exc
 
 
-def fetch_file_content(repo_url, file_path, ref, github_token=None):
-    """
-    Fetches the content of a file from a GitHub repository at a specific reference (commit SHA, branch, or tag).
-    """
-
-    repo, owner = get_owner_repo(repo_url)
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}?ref={ref}"
-    headers = _github_headers(github_token)
-
-    try:
-        response = requests.get(url, headers=headers, timeout=30)
-        if response.status_code != 200:
-            _handle_github_error(response, "Fetching file content")
-
-    except requests.RequestException as exc:
-        raise PRReviewError(
-            f"Unable to fetch file content for '{file_path}' from GitHub: {exc}",
-            code="github_connection_error",
-            status_code=exc.response.status_code if hasattr(exc, "response") and exc.response is not None else None,
-        ) from exc
-
-    response_dict = response.json()
-    try:
-        file_content = base64.b64decode(response_dict.get("content", "")).decode("utf-8")
-        return file_content
-    except (KeyError, ValueError, UnicodeDecodeError):
-        return None
-
-
 # ================= The main function from where the pr request files will be analyzed ==================
 def analyze_pr(repo_url, pr_number, github_token=None):
     github_token = github_token or os.environ.get("GITHUB_API_KEY")
@@ -199,16 +199,6 @@ def analyze_pr(repo_url, pr_number, github_token=None):
                 status_code=400
             )
 
-        pr_details = fetch_pr_details(repo_url, pr_number, github_token)
-        head_sha = pr_details["head"]["sha"]
-
-        if not head_sha:
-            raise PRReviewError(
-                "The PR metadata is incomplete and the head commit could not be resolved.",
-                code="invalid_pr_data",
-                status_code=400
-            )
-
         pr_files = fetch_pr_files(repo_url, pr_number, github_token)
         all_analyze_results = []
 
@@ -220,33 +210,33 @@ def analyze_pr(repo_url, pr_number, github_token=None):
             if not file_name:
                 continue
 
-            try:
-                raw_content = fetch_file_content(repo_url, file_name, head_sha, github_token)
-            except PRReviewError as exc:
+            patch = file.get("patch")
+            if not isinstance(patch, str):
                 all_analyze_results.append(
                     {
                         "file_name": file_name,
                         "result": None,
-                        "error": exc.message,
-                        "error_code": exc.code,
-                        "status_code": exc.status_code,
-                    }
-                )
-                continue
-
-            if raw_content is None:
-                all_analyze_results.append(
-                    {
-                        "file_name": file_name,
-                        "result": None,
-                        "error": "This file could not be read from GitHub and was skipped.",
-                        "error_code": "file_unreadable",
+                        "error": "GitHub did not provide a text diff for this file, so it was skipped.",
+                        "error_code": "diff_unavailable",
                         "status_code": None,
                     }
                 )
                 continue
 
-            analyze_result = analyze_code_llm(raw_content, file_name)
+            changed_lines = extract_changed_lines(patch)
+            if not changed_lines:
+                all_analyze_results.append(
+                    {
+                        "file_name": file_name,
+                        "result": None,
+                        "error": "No added or deleted lines were available for this file, so it was skipped.",
+                        "error_code": "no_changed_lines",
+                        "status_code": None,
+                    }
+                )
+                continue
+
+            analyze_result = analyze_code_llm(changed_lines, file_name)
             all_analyze_results.append({"file_name": file_name, "result": analyze_result})
 
         if not all_analyze_results:
